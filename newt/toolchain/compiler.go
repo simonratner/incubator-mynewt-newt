@@ -180,7 +180,7 @@ func NewCompiler(compilerDir string, dstDir string,
 		ObjPathList: map[string]bool{},
 		baseDir:     project.GetProject().BasePath,
 		srcDir:      "",
-		dstDir:      filepath.Clean(dstDir),
+		dstDir:      filepath.ToSlash(filepath.Clean(dstDir)),
 		extraDeps:   []string{},
 	}
 
@@ -305,6 +305,14 @@ func (c *Compiler) SkipSourceFile(srcFile string) error {
 	return nil
 }
 
+func trimPathPrefix(s string, prefix string) string {
+	return strings.TrimPrefix(filepath.ToSlash(s), filepath.ToSlash(prefix))
+}
+
+func trimPathSuffix(s string, suffix string) string {
+	return strings.TrimSuffix(filepath.ToSlash(s), filepath.ToSlash(suffix))
+}
+
 // Generates a string consisting of all the necessary include path (-I)
 // options.  The result is sorted and contains no duplicate paths.
 func (c *Compiler) includesStrings() []string {
@@ -316,7 +324,7 @@ func (c *Compiler) includesStrings() []string {
 
 	tokens := make([]string, len(includes))
 	for i, s := range includes {
-		s = strings.TrimPrefix(s, c.baseDir+"/")
+		s = trimPathPrefix(s, filepath.Clean(c.baseDir)+"/")
 		tokens[i] = "-I" + s
 	}
 
@@ -344,9 +352,9 @@ func (c *Compiler) depsString() string {
 }
 
 func (c *Compiler) dstFilePath(srcPath string) string {
-	relSrcPath := strings.TrimPrefix(srcPath, c.srcDir)
-	relDstPath := strings.TrimSuffix(relSrcPath, filepath.Ext(srcPath))
-	dstPath := fmt.Sprintf("%s/%s", c.dstDir, relDstPath)
+	relSrcPath := trimPathPrefix(srcPath, filepath.Clean(c.srcDir)+"/")
+	relDstPath := trimPathSuffix(relSrcPath, filepath.Ext(srcPath))
+	dstPath := fmt.Sprintf("%s/%s", trimPathPrefix(c.dstDir, filepath.Clean(c.baseDir)+"/"), relDstPath)
 	return dstPath
 }
 
@@ -382,7 +390,11 @@ func (c *Compiler) CompileFileCmd(file string, compilerType int) (
 		return nil, util.NewNewtError("Unknown compiler type")
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	cmdParts := strings.Split(cmdName, " ")
+	cmdName = cmdParts[0]
+	flags = append(cmdParts[1:], flags...)
+
+	srcPath := trimPathPrefix(file, filepath.Clean(c.baseDir)+"/")
 	cmd := []string{cmdName}
 	cmd = append(cmd, flags...)
 	cmd = append(cmd, c.includesStrings()...)
@@ -406,7 +418,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 		os.MkdirAll(depDir, 0755)
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := trimPathPrefix(file, filepath.Clean(c.baseDir)+"/")
 	cmd := []string{c.ccPath}
 	cmd = append(cmd, c.cflagsStrings()...)
 	cmd = append(cmd, c.includesStrings()...)
@@ -429,7 +441,7 @@ func (c *Compiler) GenDepsForFile(file string) error {
 	}
 
 	// Append the extra dependencies (.yml files) to the .d file.
-	objFile := strings.TrimSuffix(file, filepath.Ext(file)) + ".o"
+	objFile := trimPathSuffix(file, filepath.Ext(file)) + ".o"
 	if _, err := f.WriteString(objFile + ": " + c.depsString()); err != nil {
 		return util.NewNewtError(err.Error())
 	}
@@ -490,7 +502,7 @@ func (c *Compiler) CompileFile(file string, compilerType int) error {
 		return err
 	}
 
-	srcPath := strings.TrimPrefix(file, c.baseDir+"/")
+	srcPath := trimPathPrefix(file, filepath.Clean(c.baseDir)+"/")
 	switch compilerType {
 	case COMPILER_TYPE_C:
 		util.StatusMessage(util.VERBOSITY_DEFAULT, "Compiling %s\n", srcPath)
@@ -573,6 +585,7 @@ func (c *Compiler) CompileCpp() error {
 	if err != nil {
 		return err
 	}
+	log.Infof("Working in dir (%s)", wd)
 
 	log.Infof("Compiling CC if outdated (%s/*.cc) %s", wd,
 		strings.Join(files, " "))
@@ -1054,7 +1067,7 @@ func (c *Compiler) CompileArchiveCmd(archiveFile string,
 }
 
 func linkerScriptFileName(archiveFile string) string {
-	ar_script_name := strings.TrimSuffix(archiveFile, filepath.Ext(archiveFile)) + "_ar.mri"
+	ar_script_name := trimPathSuffix(archiveFile, filepath.Ext(archiveFile)) + "_ar.mri"
 	return ar_script_name
 }
 
@@ -1141,7 +1154,7 @@ func (c *Compiler) CompileArchive(archiveFile string) error {
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "Archiving %s",
 		path.Base(archiveFile))
 	util.StatusMessage(util.VERBOSITY_VERBOSE, " with object files %s",
-		archiveFile, strings.Join(objList, " "))
+		strings.Join(objList, " "))
 	util.StatusMessage(util.VERBOSITY_DEFAULT, "\n")
 
 	if err != nil && !os.IsNotExist(err) {

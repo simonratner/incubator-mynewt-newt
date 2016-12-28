@@ -109,12 +109,12 @@ func (pkg *LocalPackage) FullName() string {
 }
 
 func (pkg *LocalPackage) BasePath() string {
-	return filepath.Clean(pkg.basePath)
+	return filepath.ToSlash(filepath.Clean(pkg.basePath))
 }
 
 func (pkg *LocalPackage) RelativePath() string {
 	proj := interfaces.GetProject()
-	return strings.TrimPrefix(pkg.BasePath(), proj.Path())
+	return strings.TrimPrefix(pkg.BasePath(), filepath.ToSlash(proj.Path()))
 }
 
 func (pkg *LocalPackage) Type() interfaces.PackageType {
@@ -136,7 +136,7 @@ func (pkg *LocalPackage) SetName(name string) {
 }
 
 func (pkg *LocalPackage) SetBasePath(basePath string) {
-	pkg.basePath = basePath
+	pkg.basePath = filepath.Clean(basePath)
 }
 
 func (pkg *LocalPackage) SetType(packageType interfaces.PackageType) {

@@ -402,7 +402,7 @@ func (b *Builder) PrepBuild() error {
 
 	// All packages have access to the generated code header directory.
 	baseCi.Cflags = append(baseCi.Cflags,
-		"-I"+GeneratedIncludeDir(b.targetPkg.Name()))
+		"-I"+filepath.ToSlash(GeneratedIncludeDir(b.targetPkg.Name())))
 
 	// Note: Compiler flags get added at the end, after the flags for library
 	// package being built are calculated.

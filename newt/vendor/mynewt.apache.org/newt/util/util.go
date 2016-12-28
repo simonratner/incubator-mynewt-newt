@@ -310,6 +310,7 @@ func ShellCommandLimitDbgOutput(
 	}
 
 	if err != nil {
+		log.Debugf("err=%s", err.Error())
 		return o, NewNewtError(string(o))
 	} else {
 		return o, nil
